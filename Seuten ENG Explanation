@@ -1,0 +1,102 @@
+0 B$="¿ÿ¿U¿ÿ¿ÿþÿþUþÿþÿûÿûUûÿûÿïÿïUïÿïÿ'ßWßßWß'äûêûûêûäÿÿÿÿÿÿÿÿ":SCREEN1,2,0:COLOR,1,4:WIDTH32:DEFINTA-Z:KEYOFF:L=10:R=1
+
+B$ contains all characters definitions of the game: infatc each character inside b$ has its asc value that we can use as 
+value to redefine chars... It is at the start of the listing so we can know exactly that the first character inside b$ is 
+in RAM at address 32778 (if we use 0 as 1st line number because the editor add a space before the "B" of b$ else it would 
+be 32777). Then we set screen: 1=32x24 text mode with graphic possibilities, 2=sprites16x16, 0=no keyclick. Setting colors 
+(foreground omitted), background, border. Setting columns nr to teh max (default nr is 29 'cause old tvs had problems displaying 
+most lefts coulmns). Then we define all variables as integers. Keyoff erases F-key description in the bottom of the screen. L is 
+set to 10 and is the color of our bullet. This has be done to save a char in the last line. R is a position flag we will use in 
+line nr 2 for sprites definition
+
+1 A$="F87F3F1F1F1F3F7C0000E09EFFFEE00000000779FF7F07001FFEFCF8F8F8FC3E":FORK=0TO31:VPOKE776+K,PEEK(32778+K):NEXT:V=14336
+
+In a$ we have the sprites definition of player and enemy ships, coded in hexadecimal, 2 chars/value. The loop fork=0to31
+reads first 32 values contained in B$ directly from RAM (peek(32778+k) and put them in VRAM (vpoke) to redefine chars a,b,c
+and d. V is the start address of sprites definitions in VRAM
+
+2 FORK=32TO55:VPOKE800+K,PEEK(32778+K):NEXT:FORK=1TO4:FORT=0TO7:VPOKEV+T,VAL("&h"+MID$(A$,R,2)):R=R+2:NEXT:V=V+16:NEXT
+
+the loop fork=32to55 reads the values contained in B$ directly from their position in RAM and load them in VRAM to redefine
+chars h,i and j: Next double loop redefine sprites. We have to define 2 16x16 sprites. every sprites consists of 4 squares 
+of 8x8 pixels, in this order:
+
+1 3
+2 4
+
+For our pourpose we need only to define square 1 and 3 of sprite 0 (player ship) and 1 and 3 of sprite1 (enemy ship). So we 
+define 4 squares (fork=1to4) of 8 valueas each (fort=0to7) in VRAM. so we do 4 times (fork=1to4) VPOKE (poke in VRAM) V 
+(sprite definitions start address) + T (increment address 8 times (fort=0to7 starting from 0 to avoid skipping a position), 
+value (VAL) "&H" (hexadecimal msx basic suffix)+ 2 alfanumeric chars taken from A$, at R position (MID$(A$,r,2)). R is incremented
+by 2 in the inner loop, so every time the loop point to next byte of sprite definition address R point to next 2chars group inside 
+A$ (hexadecimal are always 2chars long in 0-255 range). At the end of the inner loop (square loop) V is incremented by 16 units, 
+so every time a new square loop starts the sprite definition address is 16bytes higher avoiding a square. So at the end of the outer 
+loop we have defined squares 1,3 of sprite0 and 1,3 of sprite 1
+
+3 VPOKEV+6,255:D$=CHR$(27)+"Y":FORT=3TO6:POKE63779,T*4:READA$,B$,C$,J:C$=STRING$(32,C$):FORK=1TO3:A$=A$+A$:B$=B$+B$:NEXT
+
+At the end of sprites definition loop V is incremented by 16 the last time too, so point to square 1 of sprite2. We add 6 
+to reach the seventh line of the sprite2 first square and vpoke 255 there (so we have a 8 pixel long line, that we use as player bullet). 
+Setting D$ as a escape sequence that tell where to print (instead of use locate for saving chars). Now with thw next loop we build the parallax
+ scrolling illusion: a trick possible in a machine with enough VRAM is that you can use that to "save" pre-builded screens. When using screen1 
+settings we have a lot of unused space we can use for this pourpose. We simply have to change the starting address of the nametable and the 
+correspondant screen will be displayed (at zero cpu cost). So I used in this game 4 different screens (but using screen1 we can have 6). So outer
+loop (fort=3to6) is to select the number of screens (4), using the numbers we will use to set their starting addresses. With poke63779,t*4 we tell
+to the basic in wich area the statement "print" (and all related, such as cls or locate) has to work.Then we read our datas accordignly ordinated: 
+A$ if the 4char base string for 16pixel scrolling layer,B$ is the 4char base string for 8pixel scrolling layer, C$ is the 1char base string for 
+4pixel scrolling layer, J is the value of char used for 2pixel scrolling layer (background). Then we set c$ as a 32 chars string. Next loop (nested) 
+makes A$ and B$ 2 strings of 32 chars where 4base string are repeated
+
+4 CLS:?D$+"! "+B$;A$;C$:?D$+"3 "+C$;A$;B$:A$=STRING$(32,J):FORK=4TO18:LOCATE,K:?A$;:NEXT:?D$+"6,SEUTEN":NEXT:V=8204
+
+Now we clear actual screen and print, starting from the second line (print d$=escape sequence+"row pos char" whom value is 32+row "column pos char"
+32+column so in this case row1=32+1=33="!",column0=32+0=" ") the tree strings a$,b$ and c$. Then the same strings but from c$ to A$ by row19 (20th). 
+After that we set a$ as a 32chars string filled with the asc value that we had loaded in J and fill rows from 4 to 18 (5th-19th) with this string. 
+Doing this we have drawn 4 screens with preshifted chars ready to create a scrolling illusion! At the bottom of the screen we print the game name. 
+V is the first color value we have to change later
+
+5 VPOKEV,18:P=0:VPOKEV+1,229:B=271:I=209:W=I:Y=96:S=15:DATAhjjh,jhhj,h,97,jjhh,hjjh,i,98,jhhj,jhhj,h,99,hhjj,hjjh,i,100
+
+In screen1 color table is short. Every location is for a group of 8 characters. The higher nibble is for foreground color, lower nibble for background
+color. We need to change only 2 location, correspondent to the chars we have redefined. P is the score variable. B the start x position of enemy ship 
+(with higher value because it will be decreased by 16 suddenly at game start (next line) and we need it to be 255 to assign vertical position value 
+to enemy ship. I and W are correlated. I is the Y position of our bullet and W is the "I restoring value" as you'll see. Y is player ship y value. 
+S is a costant value, used for starting x position of player bullet and for player sprite color. Then we have the data for level design strings
+
+6 FORT=3TO6:VDP(2)=T:POKE&HF923,T*4:J=STICK(0):?D$+"  SCORE";P:B=B+16*(B>0)-256*(B<0):IFB=255THENC=8*(INT(RND(1)*14)+4)
+
+Here start the game loop. Is really nested in a loop where T assume the value we need to "change" screen. We simply change screen by writing its
+address nr in the VDP(2) function (the address is equal to this number*1024):Poke&hF923 is the same of poke 63779 but in hexadecimal notation, so we
+ enable printing on current screen. J assume Stick(0) function value. Stick() return joystick or cursor keys values (depending of its parameter, 
+0 cursors, 1 joy in port1, 2 joy in port2). Print using escape sequence at 0,0 position SCORE and score value. B (enemy ship horizontal position) 
+is changed depending of some conditions. If it is bigger than 0 than B wil be decremented by 16 pixels (if condition is true then it value is -1) 
+if B is lower than 0 than its value will be 255 (because B starts from 271 and subtracting 16 every time its first value below zero will be -1, so 
+we'll have -1+16*(0)-256*(-1)=-1+0+256=-1+256=255):if B=255 then C (enemy ship vertical position in row nr) will be a random number in the range 
+of 4-18 (bacground smooth scrolling area)
+
+7 Y=Y-8*(J=5ANDY<137)+8*(J=1ANDY>39):PUTSPRITE0,(8,Y),S,0:PUTSPRITE1,(B,C),8,1:IF(STRIG(0))THENI=Y:K=S
+
+Y is player vertical position. It changes depending some conditions: J(stick function) has to be 5 (for incrementing value by 8 pixels) and Y has 
+to be lower than 137(ie it can be max 144) or 1 (to decrement it by 8 pixels) and Y has to be higher than 39 (ie it can be min 32). Player ship 
+sprite and enemy ship sprite are displayed on screen. Putsprite parameters are: number of display plane (lesser nr has most priority),(x,y),color,sprite nr. 
+Then we check if spacebar is pressed: strig read fire buttons (0 spacebar, 1 joy1 fire1, 2 joy2 fire1, 3 joy1 fire2, 4 joy2 fire2). If spacebar is 
+pressed then I (vertical pos of bullet) is set equal to player ship vertical pos and K (bullet horizontal pos) is set to 15 (just under the right 
+part of player ship from where it will be moved during the game loop)
+
+8 IFC=YANDB=15THENVPOKE6912,208:CLS:?D$+")'YOUR SCORE IS";P:T=6:NEXT:?D$+",+GET READY!":RESTORE:FORK=0TO10000:NEXT:GOTO0
+
+If C(enemy vertical position) is equal to Y(player vertical position) and B(enemy horizontal position) is equal to 15 then enemy ship collided 
+with player ship that is always displayed horizontally from pixel 8 to pixel 24. In that case we clear the screen and write in VRAM the value 208
+to the first sprite y position address. 208 is a "magic number": if a sprite y is set to 208 that sprites and all the subsequent sprites are removed
+from screen. So setting the first sprite y to 208 removes for sure all sprites from screen. Then we print the score at the center of the screen. 
+Then we assign value 6 to T and execute a NEXT statement to exit properly from the loop. Print the "GET READY" writing and do a RESTORE (so the program
+will be able to read datas again). We do a wait loop before restart the game
+
+9 PUTSPRITE2,(K,I),L,2:K=K+16:IFK>=BANDI=CTHENP=P+10:B=271:I=W:NEXT:GOTO6ELSEIFK=255THENI=W:K=0:NEXT:GOTO6ELSENEXT:GOTO6
+
+Sprite bullet is displayed at K,I coordinates L coloured (to save a char). Its horizontal pos in incremented by 16pixels. If bullet x pos is bigger
+or equal than enemy x pos and their y pos is the same then they have collided. Score is incremented by 10, enemy ship x pos is set to 271 (as it was 
+at the start and to become 255 suddenly), bullet y position is set to 209 (W), out of screen, the loop is updated (next). If the loop is ended the 
+game continue from line 6 with a goto instruction. Else if bullet horizontal position (K) is 255 then its vertical position is set to 209 (W), out 
+of screen, and the loop is updated (next). If the loop is ended the game will continue to line 6 thx to the goto instruction. Else if none of prec 
+conditions are true the loop is updated with next and if it is ended the game loop restart from line 6
