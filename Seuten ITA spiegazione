@@ -1,0 +1,131 @@
+0 B$="¿ÿ¿U¿ÿ¿ÿþÿþUþÿþÿûÿûUûÿûÿïÿïUïÿïÿ'ßWßßWß'äûêûûêûäÿÿÿÿÿÿÿÿ":SCREEN1,2,0:COLOR,1,4:WIDTH32:DEFINTA-Z:KEYOFF:L=10:R=1
+
+Questo listato comincia con una "compressione" dei dati della grafica. B$ infatti contiene tutti i dati che servono per definire
+i caratteri del gioco. Come sapete ogni carattere ha un suo codice ASCII da 0 a 255. Non tutti sono stampabili (e quindi utilizzabili)
+ma se disegniamo la grafica con l'accortezza di avere valori corrispondenti solo a quelli "possibili" risparmiamo un sacco di
+spazio! Un altro trucco derivante dai dati messi dentro una stringa è che conoscendo l'indirizzo di inizio della RAM del basic
+possiamo conoscere anticipatamente da quale locazione di memoria incominciano i valori dei caratteri che costituiscono la stringa
+così da leggerli direttamente con un peek() invece che usare funzioni come asc e mid$ insieme. Nel caso dell'MSX la locazione in 
+questione è 32778 (perchè come primo numero di linea usiamo lo 0 e l'editor del basic aggiunge automaticamente uno spazio vuoto 
+supplementare, altrimenti normalmente sarebbe 32777). Subito dopo l'assegnazione di b$ settiamo lo schermo con i seguenti parametri: 
+1=modo testo 32x24 ma con supporto grafico, 2=sprites16x16 senza ingrandimento, 0=keyclick disattivato. Poi settiamo i colori (omettiamo 
+il colore di primo piano dei caratteri per risparmiare un carattere), colore di sfondo, colore del bordo. Settiamo il numero di colonne a 32
+(valore massimo consentito in screen1; il valore di default è 29 perchè alcuni vecchi modelli di TV avevano problemi a mostrare le colonne 
+più a sinistra del VDP TMS9918). Dichiariamo tutte le variabili come intere (per guadagnare velocità di elaborazione). Con Keyoff cancelliamo
+la descrizione dei tasti funzione nell'ultima riga dello schermo. Assegniamo il valore 10 a L (è il colore del nostro proiettile, ci servirà 
+a risparmiare caratteri più avanti). R è un flag di posizione all'interno della stringa a$ (vedremo alla linea 2 il suo utilizzo)
+
+1 A$="F87F3F1F1F1F3F7C0000E09EFFFEE00000000779FF7F07001FFEFCF8F8F8FC3E":FORK=0TO31:VPOKE776+K,PEEK(32778+K):NEXT:V=14336
+
+A$ contiene le definizioni degli sprite in notazione esadecimale (2 caratteri per ogni valore. Il loop fork=0to31 legge i valori dei
+primi 32 caratteri contenuti in B$ direttamente dalla RAM (peek(32778+k) e li mette in VRAM (vpoke) per ridefinire i caratteri a,b,c e d.
+V è l'indirizzo di partenza delle definizioni degli sprites in VRAM
+
+2 FORK=32TO55:VPOKE800+K,PEEK(32778+K):NEXT:FORK=1TO4:FORT=0TO7:VPOKEV+T,VAL("&h"+MID$(A$,R,2)):R=R+2:NEXT:V=V+16:NEXT
+
+il loop fork=32to55 legge i sccessivi 24 valori contenuti in B$ dalla RAM e ridefinisce in VRAM i caratteri h,i e j. Il prossimo "doppio"
+loop ridefinisce gli sprites. Dobbiamo definire 2 sprites 16x16. Ogni sprite è formato da quattro quadranti di 8x8 pixels, posizionati in 
+questo ordine:
+
+1 3
+2 4
+
+Per questo gioco abbiamo bisogno di definire solo i quadranti 1 e 3 dello sprite 0 (astronave del giocatore) e i quadranti 1 e 3 dello sprite1 
+(astronave nemica). Quindi dobbiamo definire 4 quadranti(fork=1to4) composti ognuno da 8 valori (fort=0to7) in VRAM. Quindi per 4 volte 
+(fork=1to4) faremo VPOKE (poke in VRAM) V (indirizzo di partenza delle definizioni sprite) + T (che incrementa l'indirizzo 8 volte: fort=0to7 
+partiamo da 0 perchè così evitiamo di "saltare" una locazione), valore (VAL) "&H" (suffisso per la notazione esadecimale dell'msx basic)+ 2 
+caratteri "prelevati" da A$, alla posizione R (MID$(A$,R,2)). R viene incrementato di 2 unità alla fine di ogni ciclo interno, così ad ogni loop 
+successivo punta al prossimo byte di due caratteri da prelevare da A$ (i valori esxadecimali di un byte sono sempre "lunghi" 2 caratteri da 00 a FF,
+ovvero da 0 a 255). Alla fine del loop interno (cioè di ogni quadrante, 8 valori) V viene incrementata di 16, così quando parte un nuovo loop di 
+definizione di un quadrante l'indirizzo di definizione degli sprite sarà 16 byte più avanti "saltando" di fatto la definizione dei quadranti che 
+ci servono vuoti. Così alla fine del loop esterno avremo definito i quadranti 1 e 3 dello sprite 0 e 1 e 3 dello sprite 1.
+
+3 VPOKEV+6,255:D$=CHR$(27)+"Y":FORT=3TO6:POKE63779,T*4:READA$,B$,C$,J:C$=STRING$(32,C$):FORK=1TO3:A$=A$+A$:B$=B$+B$:NEXT
+
+V viene incrementata di 16 anche alla fine dell'ultimo loop di definizione degi sprites, quindi punta al primo byte di definizione del primo 
+quadrante dello sprite 2. Aggiungendo 6 unità raggiungiamo la settima linea del primo quadrante. Facciamo un vpoke 255 e in questo modo creiamo
+una linea di 8 pixel che useremo come sprite per il nostro proiettile. Ora assegniamo a D$ una sequenza di escape per il posizionamento del cursore
+(così da non dover usare l'istruzione locate e risparmiare quindi caratteri). Con i prossimi loop nidificati uno dentro l'altro costruiremo
+l'illusione dello scrolling parallattico: Un trucco possibile in una macchina con sufficiente VRAM è la possibilità di salvare nella VRAM
+inutilizzata delle schermate pre-costruite. Quando usiamo la modalità screen1 abbiamo tantissima VRAM libera (i 16K sono necessari per la modalità 
+grafica screen2, tutti gli altri modi video occupano molto meno spazio) che possiamo usare per questo scopo. In questo modo dovremo semplicemente
+cambiare l'indirizzo di partenza dell'area di VRAM da visualizzare (praticamente a costo zero per la CPU!). Così in quato gioco ho usato 4
+schermate differenti (ma in screen1 possiamo averne anche 6). Quindi il loop esterno (fort=3to6) setta il numero delle schermate (4), usando però già
+i numeri che funzionano da puntatori ai loro indirizzi di partenza. Con poke63779,t*4 diciamo al basic in quale area deve lavorare il comando "print"
+(e tutti gli altri comandi correlati come cls o locate).Quindi leggiamo i dati opportunamente ordinati nelle linee data: A$ è la stringa base di 4
+caratteri per il livello di scrolling a passi di 16 pixel, B$ è la stringa base di 4 caratteri per il livello di scrolling a passi di 8 pixel, C$ 
+è il carattere base per il livello di scrolling a passi di 4 pixel, J è il valore del carattere usato per il livello di scrolling a 2pixel (sfondo).
+Trasformiamo c$ in una stringa di 32 caratteri e nel prossimo loop trasformiamo anche A$ e B$ in stringhe di 32 caratteri in cui le basi di 4 caratteri
+sono continuamente ripetute.
+
+4 CLS:?D$+"! "+B$;A$;C$:?D$+"3 "+C$;A$;B$:A$=STRING$(32,J):FORK=4TO18:LOCATE,K:?A$;:NEXT:?D$+"6,SEUTEN":NEXT:V=8204
+
+Puliamo lo schermo attuale e stampiamo, partendo dalla seconda linea (printD$, cioè la sequenza di escape, + carattere che indica la posizione della riga 
+(il cui valore è 32+numero di riga) carattere posizione della colonna (sempre 32+numero colonna) quindi in questo caso riga1=32+1=33="!", 
+colonna0=32+0=32=" ") le tre sringhe otenute A$,B$ e C$. Poi le stesse stringhe in senso inverso dalla riga 19 in poi (sempre dalla colonna 0).
+Dopodichè definiamo a$ come una stringa di 32 caratteri aventi come valore ASCII quello caricato in J dalla precedente istruzione read. Con questa 
+stringa riempiamo le righe da 4 a 18. Alla fine dei quattro loop esterni avremo finito di costruire 4 schermate che contengono ognuna i caratteri
+preshiftati e cje quindi mostrate in sequenza creeranno l'illusione dello scrolling. Prima della chiusura di ognuno dei loop esteni stampiamo in fondo
+ad ogni schermata il nome del gioco. V è l'indirizzo della prima locazione in VRAM su sui dovremo agire per cambiare i colori ai caratteri che abbiamo
+ridefinito.
+
+5 VPOKEV,18:P=0:VPOKEV+1,229:B=271:I=209:W=I:Y=96:S=15:DATAhjjh,jhhj,h,97,jjhh,hjjh,i,98,jhhj,jhhj,h,99,hhjj,hjjh,i,100
+
+In screen1 la tabella dei colori è corta. Ogni locazione si riferisce ad un gruppo di 8 caratteri. Il nibble superiore (i bit da 4 a 7) indicano il
+colore di primo piano (i bit accesi) dei caratteri appartenenti a quel gruppo mentre il nibble basso (bit da 0 a 3) indicano il colore di sfondo ( i
+bit posti a 0). Il valore finale quindi è dato dalla formula colore di primo piano*16+colore di sfondo. A noi interessa cambiare solo il valore di 
+due locazioni perchè i caratteri che abbiamo ridefinito fanno parte di due soli gruppi separati contigui. P è la variabile del punteggio. B è la 
+coordinata x di partenza dell'astronave nemica (il valore è maggiorato di 16 unità, perchè viene immediatamente decrementato di 16 all'inizio del
+loop di gioco e come vedremo per poter assegnare un valore alla coordinata verticale dell'astronave nemica ci serve che B assuma il valore 255). I e W
+sono fra loro correlate: I è la posizione verticale del nostro proiettile e W è il suo valore di ripristino (come vedrete). Y è la posizione verticale
+della nostra astronave. S è una costante, che useremo sia come colore per la nostra astronave sia come valore della posizione di partenza del nostro
+proiettile. A fine riga abbiamo i dati di cui abbiamo parlato prima.
+
+6 FORT=3TO6:VDP(2)=T:POKE&HF923,T*4:J=STICK(0):?D$+"  SCORE";P:B=B+16*(B>0)-256*(B<0):IFB=255THENC=8*(INT(RND(1)*14)+4)
+
+Qui inizia il  game loop. La meccanica di gioco è veramente racchiusa in un loop in cui T assume il valore che ci serve per "cambiare" schermata.
+Cambieremo la schermata semplicemente scrivendo nella funzione VDP(2) il puntatore al'indirizzo della schermata desiderata (L'indirizzo si ottiene
+moltiplicando il puntatore*1024). Poke&hF923 è uguale a poke 63779 ma in notazione esadecimale, quindi abilitiamo la scrittura sulla schermata 
+corrente. Assegniamo a  J il valore deòòa funzione Stick(0). Stick() restituisce i valori relativi a joystick o tasti cursoe (a seconda del suo
+parametro: 0 cursor1, 1 joy in port1, 2 joy in port2). Usando la sequenza di escape stampiamo in posizione 0,0 la scritta SCORE e il punteggio.
+B (la posizione x dell'astronave nemica) viene cambiato a seconda di alcune condizioni. Se è maggiore di 0 allora sarà decrementato di 16 pixels
+(se infatti la condizione fra parentesi è vera il suo valore sarà -1). Se B è inferiore a 0 allora il suo valore sarà impostato a 255 perchè B 
+comincia con un valore di 271 e sottraendo 16 ad ogni frame il suo primo valore sotto lo zero sarà -1, e quindi avremo:
+-1+16*(0)-256*(-1)=-1+0+256=-1+256=255). Se B=255 allora C (la posizione verticale dell'astronave nemica espressa in righe) sarà un numero casuale
+nel range 4-18 (cioè all'interno dell'area in cui abbiamo lo scrolling fluido)
+
+7 Y=Y-8*(J=5ANDY<137)+8*(J=1ANDY>39):PUTSPRITE0,(8,Y),S,0:PUTSPRITE1,(B,C),8,1:IF(STRIG(0))THENI=Y:K=S
+
+Y è la posizione verticale del giocatore e cambia a seconda di alcune condizioni: J deve valere 5 (per incrementare il valore di y di 8 pixel) e
+Y stessa deve avere un valore più basso di 137 (quindi potrà raggiungere un valore massimo di 144, dopodichè non potrà più aumentare) oppure J deve
+valere 1 (per decrementare y di 8 pixels) e Y deve avere un valore superiore a 39 (quindi il valore minimo che potrà raggiungere sarà32).
+Le due astronavi sono visualizzate sullo schermon. I parametri dell'istruzione Putsprite sono: numero del piano di visualizzazione (più è basso e
+maggiore sarà la priorità di visualizzazione),(x,y),colore,numero sprite. Controlliamo se viene premuta la barra spaziatrice: la funzione strig()
+legge i pulsanti di fire a seconda del suo parametro (0 barra spaziatrice, 1 joy1 fire1, 2 joy2 fire1, 3 joy1 fire2, 4 joy2 fire2). Se la barra
+spaziatrice è premuta allora I (la posizione verticale del proiettile) è posta uguale alla coordinata verticale della nostra astronave e K (la 
+posizione orizzontale del proiettile) è posta a 15 (subito sotto il muso della nostra astronave, da cui sta partendo)
+
+8 IFC=YANDB=15THENVPOKE6912,208:CLS:?D$+")'YOUR SCORE IS";P:T=6:NEXT:?D$+",+GET READY!":RESTORE:FORK=0TO10000:NEXT:GOTO0
+
+Se C(coordinata verticale del nemico) è uguale a Y(la nostra coordinata verticale) e B(la posizione orizzontale del nemico) è uguale a 15 allora
+le due astronavi sono andate in collisione (la nostra astronave è sempre visualizzata dal pixel 8 al pixel 24). Quindi cancelliamo lo schermo e 
+scriviamo in VRAM nella prima locazione degli attributi degli sprites (posizione y del primo dei 32 sprite visualizzabili) il valore 208. 208 è 
+il "Numero Magico": se la coordinata y di uno sprite viene posta a 208 quello sprite e tutti quelli a priorità più bassa (quindi successivi a lui) 
+vengono rimossi dallo schermo. Per cui ponendo a 208 la coordinata y del primo sprite si rimuovono tutti gli sprites dallo schermo. Stampiamo il
+punteggio al centro dello schermo e assegniamo a T il valore 6 (che sarebbe l'ultimo valore che completa il ciclo for/next) ed eseguiamo un next
+proprio per chiudere correttamene il ciclo evitando così (dopo alcune ripetizioni) di incorrere in uno stack overflow. Stampiamo la scritta GET
+READY ed eseguiamo un RESTORE (azzeriamo così il puntatore di lettura dei DATA). Dopo una breve attesa il programma riparte da capo.
+
+9 PUTSPRITE2,(K,I),L,2:K=K+16:IFK>=BANDI=CTHENP=P+10:B=271:I=W:NEXT:GOTO6ELSEIFK=255THENI=W:K=0:NEXT:GOTO6ELSENEXT:GOTO6
+
+Il proiettile viene posto alle coordinate K,I con colore L (risparmiamo un carttere). La sua posizione orizzontale è incrementata di 16pixels. 
+Se la sua coordinata orizzontale è maggiore o uguale alla coordinata orizzontale del nemico e le loro coordinate verticali sono uguali allora
+abbiamo colpito l'astronve nemica. Il punteggio viene incrementato di 10 unità e la coordinata x del nemico (B) viene posta a 271 (come all'inizio,
+pronta a diventare immediatamente 255 nel nuovo frame di gioco). La coordinata verticale del proiettile viene settata a 209 (fuori dallo schermo 
+visibile e il loop viene aggiornato (next). Se il loop è terminato il goto 6 fa ripartire il tutto dalla linea6 (altrimenti il loop riprende da
+solo per eseguire tutto quello che c'è al suo interno dalla linea 6 alla 9). Tutto questo se risulta vera la condizione della collisione. Altrimenti
+(else) controlliamo se K (la posizione orizzontale del proiettile) ha raggiunto il bordo destro dello schermo (255) ed in tal caso settiamo la sua
+coordinata verticale a 209 (fuori dallo schermo perchè se no al prossimo frame ricomparirebbe a sinistra). Aggiorniamo il loop con un "next" e se 
+il loop è completo facciamo ripartire l'esecuzione dalla linea 6 (con un nuovo loop). Altrimenti, se nessuna delle condizioni controllare
+precedentemente fosse vera, semplicemente aggiorniamo il loop con un "next" e, come ormai abbiamo tutti capito, se il loop è completo il programma
+riprende l'esecuzione dalla linea 6
