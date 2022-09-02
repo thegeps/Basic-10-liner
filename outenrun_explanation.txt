@@ -1,0 +1,84 @@
+0 screen1,2,0:cls:width32:definta-z:keyoff:color,5,1:clear900:a$="030307070F0F1F1FC0C0E0E0F0F0F8F8":a=17:b=a:c=a:d=a:e=a:f=a:g=a:v=128:o=64:q=1:x=0:p=1:dimr(169),u(24),yc(32):poke&hf3b1,25:y=16:lp=5:sc=0:fork=0to15:z=val("&H"+mid$(a$,p,2))
+
+Set screen1 (text mode 32x24 with graphic capabilities), sprite 16x16, no keyclick. Clear screen. Set 32 columns (default is 29). Define all variable as integer. Erase F-key description from last screen row. set colors. Reserve
+memory for strings. A$ contains 2 chars definitions (for road borders) in hexadecimal notation (2 chars for each value). Variables from a to g are used as "road row" offsets. V is default value for VDP(3) function (base address
+of color table). O is set to save characters. Q is a variabe set to be used as "position flag" when we will read s$ next line. X is horizontal offset. P is similar to q. we will use it for a$ offset. The R(x) array will
+contain road informations, u(x) array will contain precalculated other car position and yc(x) array will contain precalculated enemy cars coordination multiplicated by 8 (so we will avoid multiplication by 8 every time we have
+to display other cars). Poke &Hf3b1,25 set the number of usable rows on screen (we erased F-key description with keyoff, before, but we can't use the last row if we don't use this poke). Y is the vertical position of other
+cars. LP= laps. SC=score. Here start chars redefinition loop (2 shapes that we will load in 8 chars, 4 for shapes). We read hexadecimal values inside a$ and offset position in mid$ using P variable
+
+
+1 vpoke776+k,z:vpoke832+k,z:vpoke896+k,z:vpoke960+k,z:p=p+2:vpoke912+k,255:vpoke1024+k,255:vpoke1088+k,255:next:s$="0603071F3F3F2F301F0F00000000001F20F0FCFF80FF80FFE0C00000000000F8040F3FFF01FF01FF070300000000000060C0E0F8FCFCF40CF8F0000000"
+
+we redefine chars of different colour group. In screen1 color table is short. Every location is for a group of 8 characters. The higher nibble is for foreground color, lower nibble for background color. We need to change only 6 locations,
+correspondent to the chars we have redefined. So we redefine 2 chars for right border near grass, and 2 chars for left road border near grass + the 2 definition for left red/white border near road and 2 for the  left, vpokeing their values
+in proper locations (definitions starts in VRAM at address 0 so we can address a char simply by multiply his asc code by 8: A address is 65*8. After vpokeing the same value to these 4 groups p is increased by 2 to point to next hexadecimal
+value and in other 3 groups of 8 character we fill definitions with 255 for fullfilled blocks (road and 2xgrass):Then we assign to S$ sprite definitions in hexadecimal notation as we did with chars.
+
+2 fork=0to60:vpoke14339+k,val("&h"+mid$(s$,q,2)):q=q+2:next:g$=string$(o,v):f$=string$(o,136):a$=g$:mid$(a$,30,8)="aprrrrqb":b$=f$:mid$(b$,29,10)="hxrrrrrryi":c$=g$:mid$(c$,28,12)="aprrrrrrrrqb":d$=f$:mid$(d$,27,14)="hxrrrrrrrrrryi":hl=500:fort=0to31
+
+here we redefine two 16x16 sprites (we will use them for cars).every sprites consists of 4 squares of 8x8 pixels, in this order:
+
+1 3
+2 4
+
+start address of sprite definitions is 14336, but we have 3 empty lines in first square so we can save space avoiding their values at the start of s$ and starting vpokeing from 14339. The methode is the same we used for chars. We earlier defined
+grass in chars 128 and 136, so we assign to G$ and F$ two strings of 64 chars (we assigned 64 to O before and 128 to v, so used them here). Using these strings we build strings from A$ to G$ that consist in alternate grass colours and with proper
+"road piece" in the middle (inserted with mid$). HL=healt value. at the end of the line start a loop that copy in a free VRAM area the values of actual color table
+
+3 vpoke2048+t,vpeek(8192+t):next:e$=g$:mid$(e$,26,16)="aprrrrrrrrrrrrqb":mid$(f$,25,18)="hxrrrrrrrrrrrrrryi":mid$(g$,24,20)="aprrrrrrrrrrrrrrrrqb":fork=0to20:reads,u:fort=0tos:r(t+w)=u:next:w=w+s+1:next:fork=0to5:reads,u:vpoke2060+k,s:vpoke8204+k,u:next
+
+default color table starts at 8192 and is long 32 bytes in screen1 (32 groups of eight chars for a total of 256 chars). We copied these values from 2048 to 2048+31, so we have a color table copy from 2048 on. We assign last tree strings of road then we
+read road datas, that are stored in this way: the first value (s) is the number of times this segment is repeted, second number (u) is the segment of road (simply an offset: 0 no variations, positive values are right curves and negative values left curves).
+We store them in the array we dimensioned at the beginning. Then we read another bunch of datas that are colors we want to assign to redefined chars, stored in alternate positions so we can read and vpoke 2 at the same time in the 2 colour table we now have
+
+4 cl=10:z=17:w=32:ul=0:fork=0to24:u(k)=rnd(1)*3:next:fork=0to31:yc(k)=k*8:next:putsprite0,(112,176),6,0:putsprite1,(128,176),6,1:data12,0,3,1,23,0,7,-1,29,0,5,1,5,0,2,-2,4,1,11,0,2,1,25,0,1,-2,2,-1,0,1,2,2,0,-1,10,0,0,-1,0,-2,6,0
+
+UL is the position we will use in the U(UL) array wich is other cars offset (by the road left border). CL is the color of other cars. Z is the starting value for other car position in
+screen (in column nr, not in pixel). W is the alternate value for VDP(3) function (to switch to "new" color table). with first loop we assign to the U() array all the values needed for other cars position.
+The second loop precalc all the values we may need for column or rows (so max value is 31 for column 32) multiplicated by 8 (so in pixels amount) and this is will avoid to do multiplications every frame.
+Player car is displayed on screen (2 sprites 16x16, nr 0 and nr 1). Datas are road infos
+
+5 fort=0to169:k=r(t):a=a+k:b=b+h:c=c+i:d=d+l:e=e+m:f=f+n:g=g+j:q=stick(0):x=x-1*(q=3and(a+x)<26):x=x+1*(q=7and(a+x)>10):vdp(3)=v:swapv,w:sc=sc+10:y=y+1:ify=23theny=16:ul=ul+1:iful=24thenul=0
+
+here start the game loop. Every time we load in K the actual road value and add it to a (most far road row offset inside the a$ string). Then we add to subsequent road rows their offsets.
+Then we check the stick function to read cursors keys. x is incremented or decremented dependant some conditions: incremented if stick value is 3 (right cursor) and a+x (road string offset
+and steer offset) is <26); decremented if left cursor (stick=7) and a+x higher than 10. I used A because I already know is first value but i could use another road offset to check that the
+car won't exit too much from road on the grass. With vdp(3) we set color table in use. Then we swap V and W values (the two colour tables address pointers) so next time the tables (and so 
+the colours) will be exchanged, giving movement illusion. score is incremented every frame and so the other car row position (Y). Every time Y overcome the last row (23, so 24th because row
+nr start from 0) then it is set to 16(17th) again (a new car appear) and car offset array position is incremented. If 24th value is reached then the very first value (0) is taken
+
+6 IFY=16THENZ=32-A-X+U(ul):goto7ELSEIFY=17THENZ=31-b-X+U(ul):goto7ELSEIFY=18THENZ=30-C-X+U(ul)*2:goto7ELSEIFY=19THENZ=29-d-X+U(ul)*2:goto7ELSEIFY=20THENZ=28-F-X+U(ul)*3:goto7ELSEIFY=21THENZ=27-F-X+U(ul)*3:goto7ELSEIFY=22THENZ=26-G-X+U(ul)*3
+
+this line set other car column position on screen (Z) dependant the row position (Y) and the road string offset subtracted from proper number of each row, based on starting values. we have
+strings of 64 characters: 32 are printed on screen by a mid$ offsetted by respective variables. Let's see the A$ and A case (most far road row): at the beginning we have first 16 chars out
+of screen (theorycally they are at the left of the screen) because A is 17 so mid$ will print from 17th char. we set road position at 30 with mid$ when defining all at line nr2. so from
+offset 30 in a$ start the road, but we have 2 chars for grass-red or white border+ red or white border-road. So usable road start from 32 (the value we use in this check!). So Z (for Y=17,
+i.e. most far road row/top other car position) will be equal to 32-road offset added with our steer offset (that affect road position on screen) + other car position inside the road 
+(U(UL): 0=left, 1=center or 2=right). in nearest road row U is multiplied by 2 or 3...
+
+7 locate0,17:?mid$(a$,a+x,32);mid$(b$,b+x,32);mid$(c$,c+x,32);mid$(d$,d+x,32);mid$(e$,e+x,32);mid$(f$,f+x,32);mid$(g$,g+x,32);:j=n:n=m:m=l:l=i:i=h:h=k:VDP(3)=V:SWAPV,W:PUTSPRITE2,(yc(z),yc(Y)),CL,0:PUTSPRITE3,(yc(Z)+16,yc(Y)),CL,1
+
+Here the row is printed on the screen, starting from column0 in row 17 (18th): we print the 7 strings portions offsetted. offsets from 2nd row to last row are now updated for next frame: starting from last
+offset we copied in all of them the values of respective prec rows offset. So nearest offset will become equal to 6th row offset. 6th will become equal to 5th, 5th=4th, 4th=3rd, 2nd=1st. first, as we know,
+will load is value at the start of next frame from the array r(t). With vdp(3) we set color table in use. Then we swap V and W values (the two colour tables address pointers) so next time the tables (and so 
+the colours) will be exchanged, giving movement illusion. Other car sprite(s) is displayed on screen. Horizontal and Vertical postions (Z and Y) are used to address array YC position so we have their values
+converted in pixels without calculations
+
+8 locate0,0:?"SCORE";sc;"HEALT";hl;"LAP";lp;:hl=hl+10*(g+x<11)+10*(g+x>25)+10*(y=22andz>11andz<17):ifhl=0thent=169:next:goto9elsenext:lp=lp-1:iflp=0goto9else5
+
+in the top left corner we print the game infos: score, healt and remaining laps. Damage is subtracted from healt based on conditions (borders collision or car collision,
+by position check). If Healt (hl) reached 0 then we close the for/next loop by setting t=169 and doinga "next" statement, then jump to line9 else the program simply complete
+the loop frame (next) and decrease the lap number. If lap nr reached the 0 then jump to line 9 else the loop will start again from line5
+
+9 cls:vpoke6912,208:iflp=0thensc=sc+hl:locate1,12:?"RACE OVER! YOUR SCORE IS";sc:fort=1to5000:next:goto0:elselocate1,12:?"TRY AGAIN! YOUR SCORE IS";sc:fort=1to5000:next:goto0:data99,242,243,98,22,31,31,22,50,35,35,50
+
+clear the screen, remove all sprites from screen writing in VRAM the value 208 to the first sprite y position address. 208 is a "magic number": if a sprite y is set to 208 that
+sprites and all the subsequent sprites are removed from screen. So setting the first sprite y to 208 removes for sure all sprites from screen. If we are here because we did all
+the laps the score is added with healt value left and a message is printed on the screen. A little wait and the game will restart. If we are here because the healt is went
+below 0 the another message is printed and after a little wait the game restart. Datas are color definitions
+
+
+Pintus Giuseppe Ettore
+thegeps@gmail.com
+

@@ -1,0 +1,80 @@
+0 screen1,2,0:cls:width32:definta-z:keyoff:color,5,1:clear900:a$="030307070F0F1F1FC0C0E0E0F0F0F8F8":a=17:b=a:c=a:d=a:e=a:f=a:g=a:v=128:o=64:q=1:x=0:p=1:dimr(169):poke&hf3b1,25:y=16:lp=5:sc=0:fork=0to15:z=val("&H"+mid$(a$,p,2))
+
+Settiamo lo screen1 (modo testo 32x24 con possibilità grafiche), sprite 16x16, keyclick disabilitato. Puliamo lo schermo. Settiamo a 32 colonne (appena settato lo screen 1 si hanno 29 colonne perchè molti vecchi televisori
+avevano difficoltà a mostrare la parte sinistra dello schermo MSX). Dichiariamo tutte le variabili come intere. Cancelliamo la descrizione dei tasti funzione dall'ultima riga dello schermo. Settiamo i colori. Riserviamo 
+memoria per le stringhe. A$ contiene le definizioni di 2 caratteri (per i bordi della strada) in esadecimale (2 caratteri per ogni valore). Le variabili da A a G sono usate come offset delle "righe della strada". V è il 
+valore di default per la funzione VDP(3) (che setta l'indirizzo di partenza della tabella dei colori). O viene usata per risparmiare caratteri e perchè le costanti sono trattate velocemente dall'interprete basic. Q verrà 
+usata come "flag di posizione" quando nella prossima riga "leggeremo" all'interno della stringa s$. X è l'offset orizzontale legato ai nostri controlli. P è come Q, però per A$. La matrice R(x) conterrà le informazioni sulla
+strada. Poke &Hf3b1,25 setta il numero di righe dello schermon (abbiamo cancellato la descrizione dei tasti funzione con keyoff ma senza questa poke su quella riga non possiamo scrivere). Y è la posizione verticale delle altre
+macchine (in righe, non in pixel). LP= giri. SC=score. A fine linea parte il loop per la ridefinizione dei caratteri (2 forme che caricheremo di seguito in 4 gruppi di caratteri). Leggiamo i valori esadecimali dentro a$ 
+prelevando 2 caratteri alla volta con mid$ partendo dal carattere nr P
+
+
+1 vpoke776+k,z:vpoke832+k,z:vpoke896+k,z:vpoke960+k,z:p=p+2:vpoke912+k,255:vpoke1024+k,255:vpoke1088+k,255:next:s$="0603071F3F3F2F301F0F00000000001F20F0FCFF80FF80FFE0C00000000000F8040F3FFF01FF01FF070300000000000060C0E0F8FCFCF40CF8F0000000"
+
+Ridefiniamo gli stessi caratteri in differenti gruppi colore: In screen1 la color table è di appena 32 bytes. Ogni locazione (byte) controlla i colori di un gruppo di 8 caratteri. Il nibble alto (i bit da 4 a 7) per il colore di primo piano,
+il nibble basso (bit da 0 a 3) per il colore di sfondo (in pratica il codice colore per ogni gruppo è: colore di primo piano*16+colore di sfondo). Quindi per i colori del gioco ci servirà cambiare i valori solo in 6 locazioni di memoria, 
+corrispondenti ai caratteri che abbiamo ridefinito. Ridefiniamo 2 caratteri per il cordolo sinistro  vicino all'erba, 2 caratteri per il cordolo sinistro ma vicino alla strada, altri 4 caratteri saranno speculari a questi caricando i loro
+valori con vpoke nelle giuste locazioni (le definizioni partono in VRAM all'indirizzo 0 quindi possiamo ricavare l'indirizzo del carattere da ridefinire semplicemente moltiplicando il suo codice asc per 8: l'indirizzo di "A" sarà 65*8. Dopo 
+aver caricato lo stesso valore in questi 4 gruppi P viene incrementato di 2 per puntare al prossimo valore esadecimale e in altri 3 gruppi di 8 caratteri riempiamo la definizione con il valore 255 per avere blocchi pieni (che useremo per la 
+strada e 2 per l'erba). In S$ abbiamo le definizioni degli sprites in notazione esadecimale esattamente come per i caratteri.
+
+2 fork=0to60:vpoke14339+k,val("&h"+mid$(s$,q,2)):q=q+2:next:g$=string$(o,v):f$=string$(o,136):a$=g$:mid$(a$,30,8)="aprrrrqb":b$=f$:mid$(b$,29,10)="hxrrrrrryi":c$=g$:mid$(c$,28,12)="aprrrrrrrrqb":d$=f$:mid$(d$,27,14)="hxrrrrrrrrrryi":hl=500:fort=0to31
+
+ridefiniamo 2 sprites 16x16 (per le macchine). Ogni sprite 16x16 è formato da 4 quadranti di 8x8 pixels, posizionati in questo ordine:
+
+1 3
+2 4
+
+L'indirizzo di partenza delle definizioni degli sprites è 14336, ma nel primo quadrante abbiamo le prime 3 linee vuote quindi possiamo risparmiare spazio non mettendo nella stringa i primi 6 caratteri (tutti 0) e facendo partire il loop di 
+ridefinizione dalla locazione 14339. Il metodo usato è come quello dei caratteri. Precdentemente abbiamo definito i caratteri "pieni" dell'erba agli ASC corrispondenti 128 e 136, quindi ora creiamo le stringhe G$ e F$ lunghe 64 caratteri ognuna
+con uno dei due valori (O è infatti 64,nr di caratteri, e V=128). Usando queste stringhe costruiremo le stringhe da A$ a G$ che conterranno i colori dell'erba alternati con inseriti nella giusta posizione i "pezzi di strada" nel mezzo con l'ausilio
+di mid$. HL=è il valore della "salte". A fine linea inizia il loop che copia in una zona vuota di VRAM i valori della color table attuale.
+
+3 vpoke2048+t,vpeek(8192+t):next:e$=g$:mid$(e$,26,16)="aprrrrrrrrrrrrqb":mid$(f$,25,18)="hxrrrrrrrrrrrrrryi":mid$(g$,24,20)="aprrrrrrrrrrrrrrrrqb":fork=0to20:reads,u:fort=0tos:r(t+w)=u:next:w=w+s+1:next:fork=0to5:reads,u:vpoke2060+k,s:vpoke8204+k,u:next
+
+La color table di default parte all'indirizzo 8192 ed è lunga 32 bytes in screen1 (32 gruppi di 8 caratteri per un totale di 256 caratteri). Copiamo questi valori da 2048 a 2048+31, così abbiamo una copia della color table copy da 2048 in poi. Definiamo
+le ultime 3 stringhe della strada e poi leggiamo dai DATA le informazioni sulla strada, che sono così posizionate: il primo numero (S) è il numero di volte che si ripete quel determinato segmento; il secondo numero (U) è il segmento di strada (semplicemente
+un offset: 0 nessuna variazione, i valori positivi sono curve a destra e quelli negativi curve a sinistra).Li memorizziamo nella matrice che abbiamo dimensionato all'inizio. I prossimi dati che leggiamo sono i colori che assegneremo ai caratteri ridefiniti,
+memorizzati in posizioni alternate cosi possiamo leggerli 2 alla volta e inserirli contemporaneamente nelle 2 color table che abbiamo.
+
+4 putsprite0,(112,176),6,0:putsprite1,(128,176),6,1:u=1:cl=10:z=17:w=32:data12,0,3,1,23,0,7,-1,29,0,5,1,5,0,2,-2,4,1,11,0,2,1,25,0,1,-2,2,-1,0,1,2,2,0,-1,10,0,0,-1,0,-2,6,0:data99,242,243,98,22,31,31,22,50,35,35,50
+
+La nostra auto è visualizzata su schermo (2 sprites 16x16, nr 0 e nr 1). U è il valore iniziale dell'offset delle altre macchine dal bordo sinistro della strada. CL è il loro colore. Z è il valore iniziale della loro posizione sullo schermo (espresso in colonne,
+non in pixel). W è il valore alternativo per la funzione VDP(3) (per impostare la nuova color table). Il primo gruppo di data sono le informazioni della strada, il secondo gruppo le definizioni dei colori
+
+5 fort=0to169:k=r(t):a=a+k:b=b+h:c=c+i:d=d+l:e=e+m:f=f+n:g=g+j:q=stick(0):x=x-1*(q=3and(a+x)<26):x=x+1*(q=7and(a+x)>10):vdp(3)=v:swapv,w:sc=sc+10:y=y+1:ify=23theny=16:u=rnd(1)*3
+
+Qui comincia il game loop. Ad ogni frame carichiamo in K l'attuale valore della strada e lo aggiungiamo ad A (che è l'offset della posizione della strada nella riga più lontana, in alto, dentro la stringa A$). Poi aggiungiamo i rispettivi offset alle linee
+seguenti della strada, in ordine. Poi controlliamo la funzione stick() per leggere i tasti cursore. X viene incrementata o decrementata a seconda delle condizioni: incrementata se stick(0) è uguale a 3 (cursore destro) e A+X (l'offset della strada nella stringa A$
+e l'offset di sterzata) è <26); decrementata se il cursore sinistro è premuto (stick(0)=7) e A+X >10. Ho usatod A perchè è noto il suo valore iniziale ma avrei potuto usare anche uno qualunque degli altri offset per controllare che la macchina non vada "troppo"
+fuori strada. Con vdp(3) settiamo la color table in uso. Poi scambiamo i valori di V e W (i due puntatori agli indirizzi delle color table) così al prossimo frame le tabelle (e quindi i colori) saranno scambiate, dando l'illusione del movimento. Il punteggio viene
+incrementato ogni frame e così anche la riga delle altre macchine (Y). Ogni volta che Y supera l'ultima riga (23) viene resettata al valore 17 (appare una nuova auto) e viene generato casualmente il suo offset dal sordolo sinistro (U)
+
+6 ify=16thenz=32-(a+x)+uelseify=17thenz=31-(b+x)+uelseify=18thenz=30-(c+x)+u*2elseify=19thenz=29-(d+x)+u*2elseify=20thenz=28-(f+x)+u*3elseify=21thenz=27-(f+x)+u*3elseify=22thenz=26-(g+x)+u*3
+
+Questa linea calcola la posizione orizzontale su schermo dell'auto avversaria in colonne (Z) dipendentemente dalla riga in cui si trova (Y) e dall'offset della strada dentro la stringa sottratto dal numero appropriato a quella riga, basato sui valori iniziali.
+Abbiamo stringhe di 64 caratteri: 32 visualizzati su schermo da mid$ con un offset per ogni riga. Esaminiamo il caso di A$ e del suo offset A (prima riga in altro della strada, la più "lontana"): all'inizio della stringa abbiamo 16 caratteri "fuori dallo schermo"
+(diciamo che in teoria sono a sinistra dello schermo) perchè A vale 17 quindi mid$ stampa a partire dal 17simo carattere di A$. Nella seconda linea del listato abbiamo "inserito" i caratteri della strada nella posizione 30 usando mid$ quindi dal 30esimo carattere
+in a$ abbiamo l'inizio della strada, ma abbiamo 2 caratteri prima dell'asfalto (erba/bordo cordolo esterno e bordo cordolo interno/bordo asfalto). Quindi la strada "usabile" parte dall'offset 32 (esattamente il valore che usiamo in questo check!). Quindi Z (per Y=17,
+cioè la posizione più in alto/lontana della macchina avversaria) sarà uguale a 32-l'offset della strada aumentato del nostro offset di sterzata (che influenza la posizione della strada su schermo) + la posizione dell'altra macchina nella carreggiata (U: 0=sinistra,
+1=centro, 2=destra). Nelle righe più vicine (e più larghe) U viene moltiplicato per 2 o per 3...
+
+7 locate0,17:?mid$(a$,a+x,32);mid$(b$,b+x,32);mid$(c$,c+x,32);mid$(d$,d+x,32);mid$(e$,e+x,32);mid$(f$,f+x,32);mid$(g$,g+x,32);:j=n:n=m:m=l:l=i:i=h:h=k:putsprite2,(z*8,y*8),cl,0:putsprite3,((z+2)*8,y*8),cl,1
+
+La strada viene stampata sullo schermo, partendo dalla colonna 0 della riga 17 (la 18esima, dato che la numerazione delle righe parte da 0): stampiamo le 7 porzioni da 32 carateri di stringhe a partire dagli offset calcolati. Vengono ora aggiornati gli offset
+dalla second riga all'ultima per il prossimo frame: partendo dall'ultimo copiamo in sequenza in ognuno il vecchio offset della riga precedente. Quindi l'offset dell'ultima riga (la settima) diverrà quello che prima era della sesta. Il sesto avrà il precedente
+valore del quinto, il quinto del quarto, il quarto del terzo, il terzo del secondo e il secondo del primo. Il primo, come sappiamo, prenderà il suo nuovo valore all'inizio del nuovo frame dalla matrice R(T). L'auto avversaria è posizionata sullo schermo. Le posizioni
+orizzontale e verticale (Z e Y) sono convertite da colonne/righe in pixels moltiplicandole per 8.
+
+8 locate0,0:?"SCORE";sc;"HEALT";hl;"LAP";lp;:hl=hl+10*(g+x<11)+10*(g+x>25)+10*(y=22andz>11andz<17):ifhl=0thent=169:next:goto9elsenext:lp=lp-1:iflp=0goto9else5
+
+Stampiamo partendo dall'angolo in alto a sinistra le informazioni del gioco: punteggio, salute e giri da compiere. Il danno viene sottratto dalla salute in base a determinate condizioni (collisione col bordo o con le auto tramite confronto delle posizioni).
+Se la salute (hl) raggiunge lo 0 allora chiudiamo il loop ponendo t=169 ed eseguendo un next (così chiudiamo il for/next in maniera pulita senza rischiare eventuali stack overflow), e saltiamo alla linea 9 altrimenti il programma semplicemente completa il loop frame (next)
+e decrementa il numero di giri. Se i giri arrivano a 0 allora salta alla linea 9 altrimenti il loop riparte dopo aver saltato alla linea 5
+
+9 cls:vpoke6912,208:iflp=0thensc=sc+hl:locate1,12:?"RACE OVER! YOUR SCORE IS";sc:fort=1to5000:next:goto0:elselocate1,12:?"TRY AGAIN! YOUR SCORE IS";sc:fort=1to5000:next:goto0
+
+Puliamo lo schermo, rimuoviamo tutti gli sprites dallo schermo scrivendo in VRAM il valore 208 nel primo indirizzo della sprite allocation table (la coordinata y dello sprite0). 208 è il "numero magico": se poniamo la y di uno sprite a 208 quello sprite e tutti quelli 
+successivi saranno rimossi dallo schermon. Quindi ponendo a 208 la y del primo sprite li rimuoviamo tutti. Se il programma è arrivato fin qui e il nmero di giri è uguale a 0 allora abbiamo terminato la gara. Al punteggio viene aggiunto il valore della "salute" rimasta
+e viene stampato un messaggio sullo schermo. Dopo poco il gioco riparte. Se invece simao qui perchè la salute è scesa a 0 verrà stampato un altro messaggio e dopo un po' il gioco riparte.
